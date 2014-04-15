@@ -122,7 +122,6 @@ void *fun(void *a) { //arduino thread
   char * two = "2";
   char * three = "3";
 	strcpy(state, one);
-  int bytes_written;
 
   int fd = open("/dev/ttyUSB12", O_RDWR);
   if (fd == -1) {
@@ -158,13 +157,13 @@ void *fun(void *a) { //arduino thread
 		strcpy(latestTemp, updatedString);
 	     //pthread_mutex_unlock(&input_lock);
 	if (strcmp(state, one) == 0) { //change from farenheit to celsius and vice versa
-		bytes_written = write(fd, state, strlen(state));//sends a string to arduino with value of 1
+		int bytes_written = write(fd, state, strlen(state) + 1);//sends a string to arduino with value of 1
 	}
 	else if (strcmp(state, two) == 0) { //turn off
-		bytes_written = write(fd, state, strlen(state));//sends a string to arduino with value of 2
+		int bytes_written = write(fd, state, strlen(state) + 1);//sends a string to arduino with value of 2
 	}
 	else if (strcmp(state, three) == 0) { //get new reading
-		bytes_written = write(fd, state, strlen(state));//sends a string to arduino with value of 3
+		int bytes_written = write(fd, state, strlen(state) + 1);//sends a string to arduino with value of 3
 	}
 	else { //error
 		printf("There is some sort of state error.");

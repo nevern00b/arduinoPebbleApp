@@ -117,14 +117,8 @@ int start_server(int PORT_NUMBER)
 } 
 
 void *fun(void *a) { //arduino thread
-  state = (char *)malloc(sizeof(char)*100); //state for arduino commands
-  char * one = "a";
-  char * two = "2";
-  char * three = "3";
-	strcpy(state, one);
-  int bytes_written;
-
-  int fd = open("/dev/ttyUSB12", O_RDWR);
+  state = (char *)malloc(sizeof(char)); //state for arduino commands
+  int fd = open("/dev/ttyUSB10", O_RDWR);
   if (fd == -1) {
   	return NULL;
   }
@@ -142,8 +136,10 @@ void *fun(void *a) { //arduino thread
   int i = 0; //string counter
   char updatedString[100];
 
+	int p = 0;
+
   while(1) { 
-	strcpy(state, one);
+	
 	//this is getting temperature information from arduino
 	     bytes_read = read(fd, buf, 100);
 	     for (i = 0; i < bytes_read; i++) {
@@ -157,22 +153,21 @@ void *fun(void *a) { //arduino thread
 	     //printf("TEMP: %s\n",latestTemp);
 		strcpy(latestTemp, updatedString);
 	     //pthread_mutex_unlock(&input_lock);
-	if (strcmp(state, one) == 0) { //change from farenheit to celsius and vice versa
-		bytes_written = write(fd, state, strlen(state));//sends a string to arduino with value of 1
+	
+	/*if (strcmp(state, "1") == 0) { //change from farenheit to celsius and vice versa
+		int bytes_written = write(fd, state, strlen(state) + 1);//sends a string to arduino with value of 1
 	}
-	else if (strcmp(state, two) == 0) { //turn off
-		bytes_written = write(fd, state, strlen(state));//sends a string to arduino with value of 2
+	else if (strcmp(state, "2") == 0) { //turn off
+		int bytes_written = write(fd, state, strlen(state) + 1);//sends a string to arduino with value of 2
 	}
-	else if (strcmp(state, three) == 0) { //get new reading
-		bytes_written = write(fd, state, strlen(state));//sends a string to arduino with value of 3
+	else if (strcmp(state, "3") == 0) { //get new reading
+		int bytes_written = write(fd, state, strlen(state) + 1);//sends a string to arduino with value of 3
 	}
 	else { //error
 		printf("There is some sort of state error.");
-	}
+	}*/
 	
-	//strcpy(state, "a");
-
-	//int bytes_written = write(fd, state, strlen(state));
+	int bytes_written = write(fd, "2", strlen("2"));
 	//printf("bytes written: %d\n", bytes_written);
 
 
