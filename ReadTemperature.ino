@@ -42,6 +42,7 @@ void Dis_7SEG (int, byte, byte, bool);
 void Send7SEG (byte, byte);
 void SerialMonitorPrint (byte, int, bool);
 void UpdateRGB (byte);
+bool isRunning;
 
 /***************************************************************************
  Function Name: setup
@@ -49,7 +50,6 @@ void UpdateRGB (byte);
  Purpose: 
    Initialize hardwares.
 ****************************************************************************/
-
 void setup() 
 { 
   Serial.begin(BAUD);
@@ -58,6 +58,7 @@ void setup()
   pinMode(GREEN, OUTPUT);  
   pinMode(BLUE, OUTPUT);   
   delay(500);          /* Allow system to stabilize */
+  isRunning = true;
 } 
 
 /***************************************************************************
@@ -72,7 +73,6 @@ void loop()
   int Decimal;
   byte Temperature_H, Temperature_L, counter, counter2;
   bool IsPositive;
-  
   /* Configure 7-Segment to 12mA segment output current, Dynamic mode, 
      and Digits 1, 2, 3 AND 4 are NOT blanked */
      
@@ -114,24 +114,41 @@ void loop()
   
   while (1)
   {
-    Wire.requestFrom(THERM, 2);
-    Temperature_H = Wire.read();
-    Temperature_L = Wire.read();
-    
-    /* Calculate temperature */
-    Cal_temp (Decimal, Temperature_H, Temperature_L, IsPositive);
-    
-    /* Display temperature on the serial monitor. 
-       Comment out this line if you don't use serial monitor.*/
-    SerialMonitorPrint (Temperature_H, Decimal, IsPositive);
-    
-    /* Update RGB LED.*/
-    UpdateRGB (Temperature_H);
-    
-    /* Display temperature on the 7-Segment */
-    Dis_7SEG (Decimal, Temperature_H, Temperature_L, IsPositive);
-    
-    delay (1000);        /* Take temperature read every 1 second */
+    while (isRunning) {
+      bool isF = true;
+      int data_read = Serial.read();
+      if (data_read != NULL) {
+        switch (data_read) {
+          case 1:
+            isF = true;
+            break;
+          case 2:
+            if (isRunning) isRunning = false;
+            else isRunning = true;
+            break;
+          case 3:
+            break;
+        }
+      }
+      Wire.requestFrom(THERM, 2);
+      Temperature_H = Wire.read();
+      Temperature_L = Wire.read();
+      
+      /* Calculate temperature */
+      Cal_temp (Decimal, Temperature_H, Temperature_L, IsPositive, isF);
+      
+      /* Display temperature on the serial monitor. 
+         Comment out this line if you don't use serial monitor.*/
+      SerialMonitorPrint (Temperature_H, Decimal, IsPositive);
+      
+      /* Update RGB LED.*/
+      UpdateRGB (Temperature_H);
+
+      /* Display temperature on the 7-Segment */
+      Dis_7SEG (Decimal, Temperature_H, Temperature_L, IsPositive);
+      
+      delay (1000);        /* Take temperature read every 1 second */
+    }
   }
 } 
 
@@ -141,13 +158,13 @@ void loop()
  Purpose: 
    Calculate temperature from raw data.
 ****************************************************************************/
-void Cal_temp (int& Decimal, byte& High, byte& Low, bool& sign)
+void Cal_temp (int& Decimal, byte& High, byte& Low, bool& sign, bool isF)
 {
   if ((High&B10000000)==0x80)    /* Check for negative temperature. */
     sign = 0;
   else
     sign = 1;
-    
+
   High = High & B01111111;      /* Remove sign bit */
   Low = Low & B11110000;        /* Remove last 4 bits */
   Low = Low >> 4; 
@@ -157,8 +174,8 @@ void Cal_temp (int& Decimal, byte& High, byte& Low, bool& sign)
   if (sign == 0)                /* if temperature is negative */
   {
     High = High ^ B01111111;    /* Complement all of the bits, except the MSB */
-    Decimal = Decimal ^ 0xFF;   /* Complement all of the bits */
-  }  
+    Decimal = Decimal^ 0xFF;   /* Complement all of the bits */
+  }
 }
 
 /***************************************************************************
@@ -212,6 +229,7 @@ void Dis_7SEG (int Decimal, byte High, byte Low, bool sign)
 
   if (Digit > 0)                 /* Display "c" if there is more space on 7-SEG */
   {
+    //if (isF) Send7SEG (Digit,0x71);
     Send7SEG (Digit,0x58);
     Digit--;
   }
