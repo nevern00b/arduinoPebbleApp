@@ -42,7 +42,11 @@ void Dis_7SEG (int, byte, byte, bool);
 void Send7SEG (byte, byte);
 void SerialMonitorPrint (byte, int, bool);
 void UpdateRGB (byte);
+int cold;
+int hot;
 bool isRunning;
+bool isF;
+bool isInverted;
 
 /***************************************************************************
  Function Name: setup
@@ -59,6 +63,7 @@ void setup()
   pinMode(BLUE, OUTPUT);   
   delay(500);          /* Allow system to stabilize */
   isRunning = true;
+  isF = false;
 } 
 
 /***************************************************************************
@@ -114,28 +119,38 @@ void loop()
   
   while (1)
   {
-    while (isRunning) {
-      bool isF = true;
-      int data_read = Serial.read();
-      if (data_read != NULL) {
-        switch (data_read) {
-          case 1:
-            isF = true;
+    char data_read = Serial.read();
+    if (data_read != NULL) {
+      switch (data_read) {
+         case '1':
+            if (isF) {
+              isF = false;
+              hot = HOT;
+              cold = COLD;
+            }
+            else {
+              isF = true;
+              hot = (HOT * 1.8) + 32;
+              cold = (COLD * 1.8) + 32;
+            }
             break;
-          case 2:
+          case '2':
             if (isRunning) isRunning = false;
             else isRunning = true;
             break;
-          case 3:
+          case '3':
+            if (isInverted) isInverted = false;
+            else isInverted = true;
             break;
         }
       }
+    if (isRunning) {
       Wire.requestFrom(THERM, 2);
       Temperature_H = Wire.read();
       Temperature_L = Wire.read();
       
       /* Calculate temperature */
-      Cal_temp (Decimal, Temperature_H, Temperature_L, IsPositive, isF);
+      Cal_temp (Decimal, Temperature_H, Temperature_L, IsPositive);
       
       /* Display temperature on the serial monitor. 
          Comment out this line if you don't use serial monitor.*/
@@ -158,23 +173,29 @@ void loop()
  Purpose: 
    Calculate temperature from raw data.
 ****************************************************************************/
-void Cal_temp (int& Decimal, byte& High, byte& Low, bool& sign, bool isF)
+void Cal_temp (int& Decimal, byte& High, byte& Low, bool& sign)
 {
   if ((High&B10000000)==0x80)    /* Check for negative temperature. */
     sign = 0;
   else
     sign = 1;
-
   High = High & B01111111;      /* Remove sign bit */
-  Low = Low & B11110000;        /* Remove last 4 bits */
   Low = Low >> 4; 
-  Decimal = Low;
-  Decimal = Decimal * 625;      /* Each bit = 0.0625 degree C */
-  
-  if (sign == 0)                /* if temperature is negative */
-  {
-    High = High ^ B01111111;    /* Complement all of the bits, except the MSB */
-    Decimal = Decimal^ 0xFF;   /* Complement all of the bits */
+  if (isF) {
+    float fahrenheit = ((High + (Low * 0.0625)) * 1.8) + 32;
+    High = (int) fahrenheit;
+    Low = (fahrenheit - (int) fahrenheit) * 100;
+    Low = Low >> 4;
+    Decimal = Low * 625;
+  }
+  else {
+    Decimal = Low;
+    Decimal = Decimal * 625;      /* Each bit = 0.0625 degree C */
+    if (sign == 0)                /* if temperature is negative */
+    {
+      High = High ^ B01111111;    /* Complement all of the bits, except the MSB */
+      Decimal = Decimal^ 0xFF;   /* Complement all of the bits */
+    }
   }
 }
 
@@ -229,8 +250,8 @@ void Dis_7SEG (int Decimal, byte High, byte Low, bool sign)
 
   if (Digit > 0)                 /* Display "c" if there is more space on 7-SEG */
   {
-    //if (isF) Send7SEG (Digit,0x71);
-    Send7SEG (Digit,0x58);
+    if (isF) Send7SEG (Digit,0x71);
+    else Send7SEG (Digit,0x58);
     Digit--;
   }
   
@@ -268,17 +289,27 @@ void UpdateRGB (byte Temperature_H)
   digitalWrite(GREEN, LOW);
   digitalWrite(BLUE, LOW);        /* Turn off all LEDs. */
   
-  if (Temperature_H <= COLD)
-  {
-    digitalWrite(BLUE, HIGH);
+  if (isInverted) {
+    if (Temperature_H <= cold) {
+      digitalWrite(RED, HIGH);
+    }
+    else if (Temperature_H >= hot) {
+      digitalWrite(BLUE, HIGH);
+    }
+    else {
+      digitalWrite(GREEN, HIGH);
+    }
   }
-  else if (Temperature_H >= HOT)
-  {
-    digitalWrite(RED, HIGH);
-  }
-  else 
-  {
-    digitalWrite(GREEN, HIGH);
+  else {
+    if (Temperature_H <= cold) {
+      digitalWrite(BLUE, HIGH);
+    }
+    else if (Temperature_H >= hot) {
+      digitalWrite(RED, HIGH);
+    }
+    else {
+      digitalWrite(GREEN, HIGH);
+    }
   }
 }
 
