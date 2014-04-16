@@ -67,6 +67,8 @@ int start_server(int PORT_NUMBER)
       printf("\nServer configured to listen on port %d\n", PORT_NUMBER);
       fflush(stdout);
      int i = 0;
+
+	char * pointerToState = (char *) malloc(sizeof(char) *2);
 	while(i < 10) {
 
       // 4. accept: wait here until we get a connection on that port
@@ -82,11 +84,19 @@ int start_server(int PORT_NUMBER)
       int bytes_received = recv(fd,request,1024,0);
       // null-terminate the string
       request[bytes_received] = '\0';
+
+	//if(sscanf(request, "GET / HTTP/1.1\nHost: 158.130.63.2:3001\nContent-Type: %s\nAccept: */*\nUser-Agent: //PebbleApp/2.1.1 CFNetwork/672.0.8 Darwin/14.0.0\nAccept-Language: en-us\nAccept-Encoding: gzip, deflate\nConnection: keep-//alive", state) != 1) {
+		//printf("There was an error with the request");
+	//}
+	
+	pointerToState = strchr(request, '$');
+	*state = pointerToState[1]; //set parse to char after the $ sign
+
+
       printf("Here comes the message:\n");
       printf("%s\n", request);
-
-	//copy the request into our state variable
-	strcpy(state, request);
+      printf("Here comes the parse:\n");
+      printf("%s\n", state); //put sent message from pebble into our state
       
       // this is the message that we'll send back
       /* it actually looks like this:
@@ -117,14 +127,16 @@ int start_server(int PORT_NUMBER)
 } 
 
 void *fun(void *a) { //arduino thread
-  state = (char *)malloc(sizeof(char)*100); //state for arduino commands
-  char * one = "a";
-  char * two = "2";
-  char * three = "3";
-	strcpy(state, one);
+state = (char *)malloc(sizeof(char)*100); //state for arduino commands
+  char * zero = "0"; //turn light off
+  char * one = "1"; //change from celsius to farenheit
+  char * two = "2"; //turn this on
+  char * three = "3"; //get new reading
+	//strcpy(state, two);
   int bytes_written;
+	
 
-  int fd = open("/dev/tty.usbmodem1411", O_RDWR);
+  int fd = open("/dev/ttyUSB10", O_RDWR);
   if (fd == -1) {
     printf("Connecting to arduino did not work");
   	return NULL;
@@ -142,10 +154,15 @@ void *fun(void *a) { //arduino thread
   int j = 0; //buffer counter
   int i = 0; //string counter
   char updatedString[100];
-
+char * lightMsg = "b";
+char * lightMsg2 = "a";
+int ip = 0;
   while(1) { 
-	strcpy(state, one); //should be in one state
+	ip++;	
 	//this is getting temperature information from arduino
+	if (ip % 9999999 == 0) {
+	printf("state in arduino loop: %s!!\n", state);
+	}
 	     bytes_read = read(fd, buf, 100);
 	     for (i = 0; i < bytes_read; i++) {
 	       updatedString[j] = buf[i];
@@ -158,25 +175,30 @@ void *fun(void *a) { //arduino thread
 	     //printf("TEMP: %s\n",latestTemp);
 		strcpy(latestTemp, updatedString);
 	     //pthread_mutex_unlock(&input_lock);
-	if (strcmp(state, one) == 0) { //change from farenheit to celsius and vice versa
+	
+	if (strcmp(state, zero) == 0) { //turn light off
+		
+		bytes_written = write(fd, lightMsg, strlen(lightMsg) + 1);//sends a string to arduino with value of b
+	}
+	else if (strcmp(state, one) == 0) { //change from farenheit to celsius and vice versa
 		bytes_written = write(fd, state, strlen(state));//sends a string to arduino with value of 1
 	}
-	else if (strcmp(state, two) == 0) { //turn off
-		bytes_written = write(fd, state, strlen(state));//sends a string to arduino with value of 2
+	else if (strcmp(state, two) == 0) { //turn on
+		printf("turn on\n");
+		//light is off. want to turn on (a)
+		
+		bytes_written = write(fd, lightMsg2, strlen(lightMsg2) + 1);//sends a string to arduino with value of a
 	}
 	else if (strcmp(state, three) == 0) { //get new reading
 		bytes_written = write(fd, state, strlen(state));//sends a string to arduino with value of 3
 	}
 	else { //error
-		printf("There is some sort of state error.");
+		//keep looping here
 	}
-	
-	//strcpy(state, "a");
-
-	//int bytes_written = write(fd, state, strlen(state));
-	//printf("bytes written: %d\n", bytes_written);
 
 
+	/*char * lightMsg = "a";
+		bytes_written = write(fd, lightMsg, strlen(lightMsg) + 1);//sends a string to arduino with value of b*/
      
   }
   close(fd);

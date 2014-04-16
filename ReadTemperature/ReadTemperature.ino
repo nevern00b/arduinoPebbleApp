@@ -47,6 +47,7 @@ int hot;
 bool isRunning;
 bool isF;
 bool isInverted;
+int on;
 
 /***************************************************************************
  Function Name: setup
@@ -60,7 +61,9 @@ void setup()
   Wire.begin();        /* Join I2C bus */
   pinMode(RED, OUTPUT);    
   pinMode(GREEN, OUTPUT);  
-  pinMode(BLUE, OUTPUT);   
+  pinMode(BLUE, OUTPUT); 
+  // to access the LED light
+  pinMode(13,OUTPUT);
   delay(500);          /* Allow system to stabilize */
   isRunning = true;
   isF = false;
@@ -117,12 +120,32 @@ void loop()
     delay (250);
   }
   
+  on = 0; //set light to off
+  
   while (1)
   {
-    char data_read = Serial.read();
+    int data_read = Serial.read();
     if (data_read != NULL) {
       switch (data_read) {
-         case '1':
+        case 97:
+          if (on == 0) {
+            on = 1; //set to on
+            digitalWrite(13, HIGH);
+            //digitalWrite(GREEN, HIGH);
+            //digitalWrite(BLUE, LOW); 
+            //digitalWrite(RED, LOW);
+          }
+            break;
+        case 98:
+          if (on == 1) {
+            on = 0; //set to on
+            digitalWrite(13, LOW);
+            //digitalWrite(GREEN, LOW);
+            //digitalWrite(BLUE, HIGH); 
+            //digitalWrite(RED, LOW);
+          }
+            break;   
+        case 99:
             if (isF) {
               isF = false;
               hot = HOT;
@@ -134,11 +157,11 @@ void loop()
               cold = (COLD * 1.8) + 32;
             }
             break;
-          case '2':
+          case 2:
             if (isRunning) isRunning = false;
             else isRunning = true;
             break;
-          case '3':
+          case 3:
             if (isInverted) isInverted = false;
             else isInverted = true;
             break;
