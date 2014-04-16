@@ -124,8 +124,9 @@ void *fun(void *a) { //arduino thread
 	strcpy(state, one);
   int bytes_written;
 
-  int fd = open("/dev/ttyUSB12", O_RDWR);
+  int fd = open("/dev/tty.usbmodem1411", O_RDWR);
   if (fd == -1) {
+    printf("Connecting to arduino did not work");
   	return NULL;
   }
   //make the error return actually do something
@@ -143,7 +144,7 @@ void *fun(void *a) { //arduino thread
   char updatedString[100];
 
   while(1) { 
-	strcpy(state, one);
+	strcpy(state, one); //should be in one state
 	//this is getting temperature information from arduino
 	     bytes_read = read(fd, buf, 100);
 	     for (i = 0; i < bytes_read; i++) {
