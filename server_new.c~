@@ -69,7 +69,7 @@ int start_server(int PORT_NUMBER)
      int i = 0;
 
 	char * pointerToState = (char *) malloc(sizeof(char) *2);
-	while(i < 10) {
+	while(i < 100) {
 
       // 4. accept: wait here until we get a connection on that port
       int sin_size = sizeof(struct sockaddr_in);
@@ -136,7 +136,7 @@ state = (char *)malloc(sizeof(char)*100); //state for arduino commands
   int bytes_written;
 	
 
-  int fd = open("/dev/ttyUSB12", O_RDWR);
+  int fd = open("/dev/ttyUSB11", O_RDWR);
   if (fd == -1) {
     printf("Connecting to arduino did not work");
   	return NULL;
