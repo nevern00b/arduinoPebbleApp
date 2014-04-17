@@ -136,7 +136,7 @@ state = (char *)malloc(sizeof(char)*100); //state for arduino commands
   int bytes_written;
 	
 
-  int fd = open("/dev/ttyUSB10", O_RDWR);
+  int fd = open("/dev/ttyUSB12", O_RDWR);
   if (fd == -1) {
     printf("Connecting to arduino did not work");
   	return NULL;
@@ -154,7 +154,8 @@ state = (char *)malloc(sizeof(char)*100); //state for arduino commands
   int j = 0; //buffer counter
   int i = 0; //string counter
   char updatedString[100];
-
+char * lightMsg = "b";
+char * lightMsg2 = "a";
 int ip = 0;
   while(1) { 
 	ip++;	
@@ -176,7 +177,7 @@ int ip = 0;
 	     //pthread_mutex_unlock(&input_lock);
 	
 	if (strcmp(state, zero) == 0) { //turn light off
-		char * lightMsg = "b";
+		
 		bytes_written = write(fd, lightMsg, strlen(lightMsg) + 1);//sends a string to arduino with value of b
 	}
 	else if (strcmp(state, one) == 0) { //change from farenheit to celsius and vice versa
@@ -185,7 +186,7 @@ int ip = 0;
 	else if (strcmp(state, two) == 0) { //turn on
 		printf("turn on\n");
 		//light is off. want to turn on (a)
-		char * lightMsg2 = "a";
+		
 		bytes_written = write(fd, lightMsg2, strlen(lightMsg2) + 1);//sends a string to arduino with value of a
 	}
 	else if (strcmp(state, three) == 0) { //get new reading

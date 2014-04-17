@@ -136,7 +136,7 @@ state = (char *)malloc(sizeof(char)*100); //state for arduino commands
   int bytes_written;
 	
 
-  int fd = open("/dev/ttyUSB10", O_RDWR);
+  int fd = open("/dev/ttyUSB11", O_RDWR);
   if (fd == -1) {
     printf("Connecting to arduino did not work");
   	return NULL;
