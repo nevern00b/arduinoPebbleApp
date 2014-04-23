@@ -23,6 +23,7 @@ char latestTemp[100];
 pthread_t thread_id;
 pthread_mutex_t lock;
 char * state;
+double average_temp;
 
 void *fun(void *);
 
@@ -112,7 +113,7 @@ int start_server(int PORT_NUMBER)
       //printf("Server sent message: %s\n", reply);
 
       // 7. close: close the socket connection
-      close(fd);
+      close(fd); //get new reading
 	}
       close(sock);
       printf("Server closed connection\n");
@@ -134,7 +135,7 @@ void *fun(void *a) { //arduino thread
   char * five = "5"; //turn off party mode
   int bytes_written;
 	
-  int fd = open("/dev/ttyUSB10", O_RDWR);
+  int fd = open("/dev/ttyUSB11", O_RDWR);
   if (fd == -1) {
 	printf("Error connecting to Arduino.");
   	return NULL;
@@ -142,7 +143,7 @@ void *fun(void *a) { //arduino thread
   
   //configuration code
   struct termios options;
-  tcgetattr(fd, &options);
+  tcgetattr(fd, &options);//get new reading
   cfsetispeed(&options, 9600);
   cfsetospeed(&options, 9600);
   tcsetattr(fd, TCSANOW, &options);
@@ -159,6 +160,14 @@ void *fun(void *a) { //arduino thread
   char * dMsg = "d";
   char * eMsg = "e";
   char * fMsg = "f";
+  char * gMsg = "g";
+  double CTempCount = 0;
+  double FTempCount = 0;
+  double CTempTotal = 0;
+  double FTempTotal = 0;
+  int F = 0;
+  double tempholder = 0;
+  
   while(1) { 
 	//getting temperature from arduino constantly
 	bytes_read = read(fd, buf, 100);
@@ -171,13 +180,27 @@ void *fun(void *a) { //arduino thread
 	  }
 	}
 	strcpy(latestTemp, updatedString); //copying latest finished temp into latestTemp
+	sscanf(latestTemp, "%lf", &tempholder); //scan latest temp into temp holder
+
+	//strcpy(state, five); //check
+	
+	/*if (F) { //temp is farenheit so add this to the farenheight total
+	  FTempTotal += tempholder;
+	  FTempCount++;
+	}
+	else { //temp is celsius so add to CTempTotal
+	  CTempTotal += tempholder;
+	  CTempCount++;
+	}*/
 	
 	//change to celsius
 	if (strcmp(state, zero) == 0) { //turn light off
+		F = 0; //we know we are not in farenheit mode
 		bytes_written = write(fd, aMsg, strlen(aMsg) + 1);//sends a string to arduino with value of a
 	}
 	//change to farenheit
 	else if (strcmp(state, one) == 0) { //change from farenheit to celsius and vice versa	
+		F = 1;
 		bytes_written = write(fd, bMsg, strlen(bMsg) + 1);//sends a string to arduino with value of b
 	}
 	//put arduino on standby
@@ -196,8 +219,21 @@ void *fun(void *a) { //arduino thread
 	else if (strcmp(state, five) == 0) { //get new reading
 		bytes_written = write(fd, fMsg, strlen(fMsg + 1));
 	}
+	//display average temperature on PEBBLE
+	else if (strcmp(state, five) == 0) { //THIS IS NOT TALKING TO THE ARDUINO
+	  //calculate the average temperature
+	  if (F) { 
+	    average_temp = FTempTotal/FTempCount;
+	  }
+	  else {
+	    average_temp = CTempTotal/CTempCount;
+	  }
+	  //send average temp to pebble
+	  printf("Average temp %lf", average_temp);
+		
+	}
 	else { //error
-		printf("There was a state error.");//keep looping here
+		//printf("There was a state error.");//keep looping here
 	}
 	if (bytes_written == -1) { //error handling
 	      printf("There was an error writing to the arduino.");
