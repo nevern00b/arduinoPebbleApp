@@ -66,9 +66,13 @@ int start_server(int PORT_NUMBER)
       // once you get here, the server is set up and about to start listening
       printf("\nServer configured to listen on port %d\n", PORT_NUMBER);
       fflush(stdout);
-     int i = 0;
 
-	char * pointerToState = (char *) malloc(sizeof(char) *2);
+	char * pointerToState = (char *) malloc(sizeof(char) *2); //malloc space for pointer to state
+	if (pointerToState == NULL) {
+	    printf("Not enough memory for pointerToState");
+	    return 0;
+	}
+	
 	while(1) {
 
       // 4. accept: wait here until we get a connection on that port
@@ -85,32 +89,23 @@ int start_server(int PORT_NUMBER)
       // null-terminate the string
       request[bytes_received] = '\0';
 
-	//if(sscanf(request, "GET / HTTP/1.1\nHost: 158.130.63.2:3001\nContent-Type: %s\nAccept: */*\nUser-Agent: //PebbleApp/2.1.1 CFNetwork/672.0.8 Darwin/14.0.0\nAccept-Language: en-us\nAccept-Encoding: gzip, deflate\nConnection: keep-//alive", state) != 1) {
-		//printf("There was an error with the request");
-	//}
-	
-	pointerToState = strchr(request, '$');
-	*state = pointerToState[1]; //set parse to char after the $ sign
+      //parse request
+      pointerToState = strchr(request, '$'); //parses request after $ to capture pebble output
+      *state = pointerToState[1]; //set parse to char after the $ sign
 
-
-      //printf("Here comes the message:\n");
-      //printf("%s\n", request);
-      //printf("Here comes the parse:\n");
-      //printf("%s\n", state); //put sent message from pebble into our state
-      
       // this is the message that we'll send back
       /* it actually looks like this:
         {
            "name": "cit595"
         }
       */
-     char* prefix = "{\n\"name\": \"";
-     char* suffix = "\"\n}\n";
+      char* prefix = "{\n\"name\": \"";
+      char* suffix = "\"\n}\n";
       char *reply = (char*) malloc(strlen(latestTemp) + strlen(prefix) + strlen(suffix) + 1);
       strcpy(reply, prefix);
       strcat(reply, latestTemp);
       strcat(reply, suffix);
-      //printf("%s\n",reply);
+      
       // 6. send: send the message over the socket
       // note that the second argument is a char*, and the third is the number of chars
       send(fd, reply, strlen(reply), 0);
@@ -118,7 +113,6 @@ int start_server(int PORT_NUMBER)
 
       // 7. close: close the socket connection
       close(fd);
-	i++;
 	}
       close(sock);
       printf("Server closed connection\n");
@@ -127,21 +121,26 @@ int start_server(int PORT_NUMBER)
 } 
 
 void *fun(void *a) { //arduino thread
-state = (char *)malloc(sizeof(char)*100); //state for arduino commands
-  char * zero = "0"; //turn light blue
-  char * one = "1"; //turn light red
-  char * two = "2"; //turn light green
-  char * three = "3"; //get new reading
-	//strcpy(state, two);
+  state = (char *)malloc(sizeof(char)*100); //state for arduino commands
+    if (state == NULL) {
+      printf("Not enough memory for state");
+      return NULL;
+    }
+  char * zero = "0"; //change to celsius
+  char * one = "1"; //change to farenheit
+  char * two = "2"; //put arduino on standby
+  char * three = "3"; //put arduino off standby
+  char * four = "4"; //turn on party mode
+  char * five = "5"; //turn off party mode
   int bytes_written;
 	
-
   int fd = open("/dev/ttyUSB10", O_RDWR);
   if (fd == -1) {
-   // printf("Connecting to arduino did not work");
+	printf("Error connecting to Arduino.");
   	return NULL;
   }
-  //make the error return actually do something
+  
+  //configuration code
   struct termios options;
   tcgetattr(fd, &options);
   cfsetispeed(&options, 9600);
@@ -154,53 +153,55 @@ state = (char *)malloc(sizeof(char)*100); //state for arduino commands
   int j = 0; //buffer counter
   int i = 0; //string counter
   char updatedString[100];
-char * lightMsg = "b";
-char * lightMsg2 = "a";
-char * lightMsg3 = "c";
-int ip = 0;
+  char * aMsg = "a"; //vars for sending info to arduino
+  char * bMsg = "b";
+  char * cMsg = "c";
+  char * dMsg = "d";
+  char * eMsg = "e";
+  char * fMsg = "f";
   while(1) { 
-	ip++;	
-	//this is getting temperature information from arduino
-	if (ip % 9999999 == 0) {
-	//printf("state in arduino loop: %s!!\n", state);
+	//getting temperature from arduino constantly
+	bytes_read = read(fd, buf, 100);
+	for (i = 0; i < bytes_read; i++) {
+	  updatedString[j] = buf[i];
+	  j = j + 1;
+	  if (buf[i] == '\n') {
+	    updatedString[j -1] = '\0';
+	    j = 0;
+	  }
 	}
-	     bytes_read = read(fd, buf, 100);
-	     for (i = 0; i < bytes_read; i++) {
-	       updatedString[j] = buf[i];
-	       j = j + 1;
-	       if (buf[i] == '\n') {
-		 updatedString[j -1] = '\0';
-		 j = 0;
-	       }
-	     }
-	     //printf("TEMP: %s\n",latestTemp);
-		strcpy(latestTemp, updatedString);
-	     //pthread_mutex_unlock(&input_lock);
+	strcpy(latestTemp, updatedString); //copying latest finished temp into latestTemp
 	
+	//change to celsius
 	if (strcmp(state, zero) == 0) { //turn light off
-		
-		bytes_written = write(fd, lightMsg, strlen(lightMsg) + 1);//sends a string to arduino with value of b
+		bytes_written = write(fd, aMsg, strlen(aMsg) + 1);//sends a string to arduino with value of a
 	}
-	else if (strcmp(state, one) == 0) { //change from farenheit to celsius and vice versa
-		//turn light red		
-		bytes_written = write(fd, lightMsg3, strlen(lightMsg3) + 1);//sends a string to arduino with value of 1
+	//change to farenheit
+	else if (strcmp(state, one) == 0) { //change from farenheit to celsius and vice versa	
+		bytes_written = write(fd, bMsg, strlen(bMsg) + 1);//sends a string to arduino with value of b
 	}
+	//put arduino on standby
 	else if (strcmp(state, two) == 0) { //turn on
-		//turn light green
-		
-		bytes_written = write(fd, lightMsg2, strlen(lightMsg2) + 1);//sends a string to arduino with value of a
+		bytes_written = write(fd, cMsg, strlen(cMsg) + 1);
 	}
+	//put arduino off standby
 	else if (strcmp(state, three) == 0) { //get new reading
-		bytes_written = write(fd, state, strlen(state));//sends a string to arduino with value of 3
+		bytes_written = write(fd, dMsg, strlen(dMsg + 1));
+	}
+	//turn on party mode
+	else if (strcmp(state, four) == 0) { //get new reading
+		bytes_written = write(fd, eMsg, strlen(eMsg + 1));
+	}
+	//turn off party mode
+	else if (strcmp(state, five) == 0) { //get new reading
+		bytes_written = write(fd, fMsg, strlen(fMsg + 1));
 	}
 	else { //error
-		//keep looping here
+		printf("There was a state error.");//keep looping here
 	}
-
-
-	/*char * lightMsg = "a";
-		bytes_written = write(fd, lightMsg, strlen(lightMsg) + 1);//sends a string to arduino with value of b*/
-     
+	if (bytes_written == -1) { //error handling
+	      printf("There was an error writing to the arduino.");
+	}
   }
   close(fd);
 }
