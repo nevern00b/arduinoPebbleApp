@@ -24,6 +24,19 @@ pthread_t thread_id;
 pthread_mutex_t lock;
 char * state;
 double average_temp;
+double maxF;
+double minF;
+double maxC;
+double minC;
+char min [100]; 
+char max [100];
+char avg [100];
+int F = 0;
+  double CTempCount = 0;
+  double FTempCount = 0;
+  double CTempTotal = 0;
+  double FTempTotal = 0;
+  double tempholder = 0;
 
 void *fun(void *);
 
@@ -92,8 +105,24 @@ int start_server(int PORT_NUMBER)
 
       //parse request
       pointerToState = strchr(request, '$'); //parses request after $ to capture pebble output
+      if (pointerToState == NULL) continue;
       *state = pointerToState[1]; //set parse to char after the $ sign
-
+	char * six = "6"; //temp stats state
+	if (strcmp(state, six) == 0) { //calculate average temps
+	  if (F) { 
+	    average_temp = FTempTotal/FTempCount;
+	    sprintf(avg, "%lf\n", average_temp);	
+	    sprintf(min, "%lf\n", minF);	    
+	    sprintf(max, "%lf\n", maxF);	  
+	  }
+	  else {
+	    average_temp = CTempTotal/CTempCount;
+	    sprintf(avg, "%lf\n", average_temp);	
+	    sprintf(min, "%lf\n", minC);	    
+	    sprintf(max, "%lf\n", maxC);	 
+	  }
+	}
+	
       // this is the message that we'll send back
       /* it actually looks like this:
         {
@@ -102,10 +131,22 @@ int start_server(int PORT_NUMBER)
       */
       char* prefix = "{\n\"name\": \"";
       char* suffix = "\"\n}\n";
-      char *reply = (char*) malloc(strlen(latestTemp) + strlen(prefix) + strlen(suffix) + 1);
-      strcpy(reply, prefix);
-      strcat(reply, latestTemp);
-      strcat(reply, suffix);
+	char* reply;
+	if (strcmp(state, six) == 0) {
+	      reply = (char*) malloc(strlen(avg) + strlen(max) + strlen(min) + strlen(prefix) + strlen(suffix) + 1);
+	      strcpy(reply, prefix);
+	      strcat(reply, min);
+	      strcat(reply, max);
+              strcat(reply, avg);
+	      strcat(reply, suffix);
+
+	}
+	else {
+	      reply = (char*) malloc(strlen(latestTemp) + strlen(prefix) + strlen(suffix) + 1);
+	      strcpy(reply, prefix);
+	      strcat(reply, latestTemp);
+	      strcat(reply, suffix);
+	}
       
       // 6. send: send the message over the socket
       // note that the second argument is a char*, and the third is the number of chars
@@ -133,6 +174,7 @@ void *fun(void *a) { //arduino thread
   char * three = "3"; //put arduino off standby
   char * four = "4"; //turn on party mode
   char * five = "5"; //turn off party mode
+  char * six = "6"; //turn off party mode
   int bytes_written;
 	
   int fd = open("/dev/ttyUSB11", O_RDWR);
@@ -161,12 +203,8 @@ void *fun(void *a) { //arduino thread
   char * eMsg = "e";
   char * fMsg = "f";
   char * gMsg = "g";
-  double CTempCount = 0;
-  double FTempCount = 0;
-  double CTempTotal = 0;
-  double FTempTotal = 0;
-  int F = 0;
-  double tempholder = 0;
+
+
   
   while(1) { 
 	//getting temperature from arduino constantly
@@ -182,16 +220,34 @@ void *fun(void *a) { //arduino thread
 	strcpy(latestTemp, updatedString); //copying latest finished temp into latestTemp
 	sscanf(latestTemp, "%lf", &tempholder); //scan latest temp into temp holder
 
-	//strcpy(state, five); //check
-	
-	/*if (F) { //temp is farenheit so add this to the farenheight total
+	if (F) { //temp is farenheit so add this to the farenheight total
+	  if (FTempTotal == 0) {
+		minF = tempholder;
+		maxF = tempholder;
+	  }
+	  else if (tempholder < minF) {
+		minF = tempholder;
+	  } //update min
+	  else if (tempholder > maxF) {
+		maxF = tempholder;
+	  } //update max
 	  FTempTotal += tempholder;
 	  FTempCount++;
 	}
 	else { //temp is celsius so add to CTempTotal
+	  if (CTempTotal == 0) {
+		minC = tempholder;
+		maxC = tempholder;
+	  }
+	  else if (tempholder < minC) {
+		minC = tempholder;
+	  } //update min
+	  else if (tempholder > maxC) {
+		maxC = tempholder;
+	  } //update max
 	  CTempTotal += tempholder;
 	  CTempCount++;
-	}*/
+	}
 	
 	//change to celsius
 	if (strcmp(state, zero) == 0) { //turn light off
@@ -218,19 +274,6 @@ void *fun(void *a) { //arduino thread
 	//turn off party mode
 	else if (strcmp(state, five) == 0) { //get new reading
 		bytes_written = write(fd, fMsg, strlen(fMsg + 1));
-	}
-	//display average temperature on PEBBLE
-	else if (strcmp(state, five) == 0) { //THIS IS NOT TALKING TO THE ARDUINO
-	  //calculate the average temperature
-	  if (F) { 
-	    average_temp = FTempTotal/FTempCount;
-	  }
-	  else {
-	    average_temp = CTempTotal/CTempCount;
-	  }
-	  //send average temp to pebble
-	  printf("Average temp %lf", average_temp);
-		
 	}
 	else { //error
 		//printf("There was a state error.");//keep looping here
