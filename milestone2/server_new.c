@@ -115,24 +115,23 @@ int start_server(int PORT_NUMBER)
 	switch (state[0]) {
 	  case '0':
 	    F = 0;
-	    bytes_written = write(arduinoFd, "a", sizeof(char));
+	    bytes_written = write(arduinoFd, "f", sizeof(char));
 	    break;
 	  case '1':
 	    F = 1;
-	    printf("Sending!");
-	    bytes_written = write(arduinoFd, "b", sizeof(char));
+	    bytes_written = write(arduinoFd, "f", sizeof(char));
 	    break;
 	  case '2':
-	    bytes_written = write(arduinoFd, "c", sizeof(char));
+	    bytes_written = write(arduinoFd, "s", sizeof(char));
 	    break;
 	  case '3':
-	    bytes_written = write(arduinoFd, "d", sizeof(char));
+	    bytes_written = write(arduinoFd, "s", sizeof(char));
 	    break;
 	  case '4':
-	    bytes_written = write(arduinoFd, "e", sizeof(char));
+	    bytes_written = write(arduinoFd, "p", sizeof(char));
 	    break;
 	  case '5':
-	    bytes_written = write(arduinoFd, "f", sizeof(char));
+	    bytes_written = write(arduinoFd, "p", sizeof(char));
 	    break;
 	  case '6':
 	    if (F) { 
