@@ -129,31 +129,25 @@ void loop()
     char data_read = Serial.read();
     if (data_read != NULL) {
       switch (data_read) {
-         case 'a':
+         case 'f':
             if (isF) {
               isF = false;
               hot = HOT;
               cold = COLD;
             }
-            break;
-          case 'b':
-            if (!isF) {
+            else {
               isF = true;
               hot = (HOT * 1.8) + 32;
               cold = (COLD * 1.8) + 32;
             }
             break;
-          case 'c':
-              isRunning = false;
+          case 's':
+              if (isRunning) isRunning = false;
+              else isRunning = true;
             break;
-          case 'd':
-              isRunning = true;
-            break;
-          case 'e':
-              partyMode = true; //set to party mode
-            break;
-          case 'f':
-              partyMode = false; //turn off party mode
+          case 'p':
+              if (partyMode) partyMode = false; //set to party mode
+              else partyMode = true; //turn off party mode
             break;
         }
       }
