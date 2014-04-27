@@ -32,6 +32,7 @@ char min [100];
 char max [100];
 char avg [100];
 int F = 0;
+int arduinoFd;
   double CTempCount = 0;
   double FTempCount = 0;
   double CTempTotal = 0;
@@ -109,53 +110,80 @@ int start_server(int PORT_NUMBER)
       *state = pointerToState[1]; //set parse to char after the $ sign
 	printf("%s ", state); //print out state
 	char * six = "6"; //temp stats state
-	if (strcmp(state, six) == 0) { //calculate average temps
-	  if (F) { 
-	    average_temp = FTempTotal/FTempCount;
-	    sprintf(avg, "%lf\n", average_temp);	
-	    sprintf(min, "%lf\n", minF);	    
-	    sprintf(max, "%lf\n", maxF);	  
-	  }
-	  else {
-	    average_temp = CTempTotal/CTempCount;
-	    sprintf(avg, "%lf\n", average_temp);	
-	    sprintf(min, "%lf\n", minC);	    
-	    sprintf(max, "%lf\n", maxC);	 
-	  }
+	
+	int bytes_written = 0;
+	switch (state[0]) {
+	  case '0':
+	    F = 0;
+	    bytes_written = write(arduinoFd, "a", sizeof(char));
+	    break;
+	  case '1':
+	    F = 1;
+	    printf("Sending!");
+	    bytes_written = write(arduinoFd, "b", sizeof(char));
+	    break;
+	  case '2':
+	    bytes_written = write(arduinoFd, "c", sizeof(char));
+	    break;
+	  case '3':
+	    bytes_written = write(arduinoFd, "d", sizeof(char));
+	    break;
+	  case '4':
+	    bytes_written = write(arduinoFd, "e", sizeof(char));
+	    break;
+	  case '5':
+	    bytes_written = write(arduinoFd, "f", sizeof(char));
+	    break;
+	  case '6':
+	    if (F) { 
+	      average_temp = FTempTotal/FTempCount;
+	      sprintf(avg, "%lf\n", average_temp);	
+	      sprintf(min, "%lf\n", minF);	    
+	      sprintf(max, "%lf\n", maxF);	  
+	    }
+	    else {
+	      average_temp = CTempTotal/CTempCount;
+	      sprintf(avg, "%lf\n", average_temp);	
+	      sprintf(min, "%lf\n", minC);	    
+	      sprintf(max, "%lf\n", maxC);	 
+	    }
+	    break;
 	}
+	
+	if (bytes_written == -1) printf("Problem sending signal to arduino");
 	
       // this is the message that we'll send back
       /* it actually looks like this:
         {
            "name": "cit595"
         }
-      */
-      char* prefix = "{\n\"name\": \"";
-      char* suffix = "\"\n}\n";
-	char* reply;
-	if (strcmp(state, six) == 0) {
-	      reply = (char*) malloc(strlen(avg) + strlen(max) + strlen(min) + strlen(prefix) + strlen(suffix) + 1);
-	      strcpy(reply, prefix);
-	      strcat(reply, min);
-	      strcat(reply, max);
-              strcat(reply, avg);
-	      strcat(reply, suffix);
+	*/
+	char* prefix = "{\n\"name\": \"";
+	char* suffix = "\"\n}\n";
+	  char* reply;
+	  if (strcmp(state, six) == 0) {
+		reply = (char*) malloc(strlen(avg) + strlen(max) + strlen(min) + strlen(prefix) + strlen(suffix) + 1);
+		strcpy(reply, prefix);
+		strcat(reply, min);
+		strcat(reply, max);
+		strcat(reply, avg);
+		strcat(reply, suffix);
 
-	}
-	else {
-	      reply = (char*) malloc(strlen(latestTemp) + strlen(prefix) + strlen(suffix) + 1);
-	      strcpy(reply, prefix);
-	      strcat(reply, latestTemp);
-	      strcat(reply, suffix);
-	}
-      
-      // 6. send: send the message over the socket
-      // note that the second argument is a char*, and the third is the number of chars
-      send(fd, reply, strlen(reply), 0);
-      //printf("Server sent message: %s\n", reply);
+	  }
+	  else {
+		reply = (char*) malloc(strlen(latestTemp) + strlen(prefix) + strlen(suffix) + 1);
+		strcpy(reply, prefix);
+		strcat(reply, latestTemp);
+		strcat(reply, suffix);
+	  }
+	
+	// 6. send: send the message over the socket
+	// note that the second argument is a char*, and the third is the number of chars
+	send(fd, reply, strlen(reply), 0);
+	//printf("Server sent message: %s\n", reply);
 
-      // 7. close: close the socket connection
-      close(fd); //get new reading
+	// 7. close: close the socket connection
+	close(fd); //get new reading
 	}
       close(sock);
       printf("Server closed connection\n");
@@ -169,47 +197,27 @@ void *fun(void *a) { //arduino thread
       printf("Not enough memory for state");
       return NULL;
     }
-  char * zero = "0"; //change to celsius
-  char * one = "1"; //change to farenheit
-  char * two = "2"; //put arduino on standby
-  char * three = "3"; //put arduino off standby
-  char * four = "4"; //turn on party mode
-  char * five = "5"; //turn off party mode
-  char * six = "6"; //turn off party mode
-  int bytes_written;
-	
-  int fd = open("/dev/ttyUSB10", O_RDWR);
-  if (fd == -1) {
+
+  arduinoFd = open("/dev/ttyUSB11", O_RDWR);
+  if (arduinoFd == -1) {
 	printf("Error connecting to Arduino.");
   	return NULL;
   }
   
   //configuration code
   struct termios options;
-  tcgetattr(fd, &options);//get new reading
+  tcgetattr(arduinoFd, &options);//get new reading
   cfsetispeed(&options, 9600);
   cfsetospeed(&options, 9600);
-  tcsetattr(fd, TCSANOW, &options);
-
+  tcsetattr(arduinoFd, TCSANOW, &options);
   char buf[100];
-  int bytes_read = read(fd, buf, 100);
-
+  int bytes_read = read(arduinoFd, buf, 100);
   int j = 0; //buffer counter
   int i = 0; //string counter
   char updatedString[100];
-  char * aMsg = "a"; //vars for sending info to arduino
-  char * bMsg = "b";
-  char * cMsg = "c";
-  char * dMsg = "d";
-  char * eMsg = "e";
-  char * fMsg = "f";
-  char * gMsg = "g";
-
-
-  
   while(1) { 
 	//getting temperature from arduino constantly
-	bytes_read = read(fd, buf, 100);
+	bytes_read = read(arduinoFd, buf, 100);
 	for (i = 0; i < bytes_read; i++) {
 	  updatedString[j] = buf[i];
 	  j = j + 1;
@@ -249,41 +257,8 @@ void *fun(void *a) { //arduino thread
 	  CTempTotal += tempholder;
 	  CTempCount++;
 	}
-	
-	//change to celsius
-	if (strcmp(state, zero) == 0) { //turn light off
-		F = 0; //we know we are not in farenheit mode
-		bytes_written = write(fd, aMsg, strlen(aMsg) + 1);//sends a string to arduino with value of a
-	}
-	//change to farenheit
-	else if (strcmp(state, one) == 0) { //change from farenheit to celsius and vice versa	
-		F = 1;
-		bytes_written = write(fd, bMsg, strlen(bMsg) + 1);//sends a string to arduino with value of b
-	}
-	//put arduino on standby
-	else if (strcmp(state, two) == 0) { //turn on
-		bytes_written = write(fd, cMsg, strlen(cMsg) + 1);
-	}
-	//put arduino off standby
-	else if (strcmp(state, three) == 0) { 
-		bytes_written = write(fd, dMsg, strlen(dMsg + 1));
-	}
-	//turn on party mode
-	else if (strcmp(state, four) == 0) { 
-		bytes_written = write(fd, eMsg, strlen(eMsg + 1));
-	}
-	//turn off party mode
-	else if (strcmp(state, five) == 0) { 
-		bytes_written = write(fd, fMsg, strlen(fMsg + 1));
-	}
-	else { //error
-		//printf("There was a state error.");//keep looping here
-	}
-	if (bytes_written == -1) { //error handling
-	      printf("There was an error writing to the arduino.");
-	}
   }
-  close(fd);
+  close(arduinoFd);
 }
 
 
