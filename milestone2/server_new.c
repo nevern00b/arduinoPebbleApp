@@ -113,12 +113,9 @@ int start_server(int PORT_NUMBER)
 	
 	int bytes_written = 0;
 	switch (state[0]) {
-	  case '0':
-	    F = 0;
-	    bytes_written = write(arduinoFd, "f", sizeof(char));
-	    break;
 	  case '1':
-	    F = 1;
+	    if (F) F = 0;
+	    else F = 1;
 	    bytes_written = write(arduinoFd, "f", sizeof(char));
 	    break;
 	  case '2':
@@ -135,16 +132,16 @@ int start_server(int PORT_NUMBER)
 	    break;
 	  case '6':
 	    if (F) { 
-	      average_temp = FTempTotal/FTempCount;
-	      sprintf(avg, "%lf\n", average_temp);	
-	      sprintf(min, "%lf\n", minF);	    
-	      sprintf(max, "%lf\n", maxF);	  
+	      average_temp = FTempTotal/(FTempCount - 5);
+	      sprintf(avg, "%.2lf\\n", average_temp);	
+	      sprintf(min, "%.2lf\\n", minF);	    
+	      sprintf(max, "%.2lf\\n", maxF);	  
 	    }
 	    else {
-	      average_temp = CTempTotal/CTempCount;
-	      sprintf(avg, "%lf\n", average_temp);	
-	      sprintf(min, "%lf\n", minC);	    
-	      sprintf(max, "%lf\n", maxC);	 
+	      average_temp = CTempTotal/(CTempCount - 5);
+	      sprintf(avg, "%.2lf\\n", average_temp);	
+	      sprintf(min, "%.2lf\\n", minC);	    
+	      sprintf(max, "%.2lf\\n", maxC);
 	    }
 	    break;
 	}
@@ -160,19 +157,39 @@ int start_server(int PORT_NUMBER)
 	char* prefix = "{\n\"name\": \"";
 	char* suffix = "\"\n}\n";
 	  char* reply;
+	char * avgStr = "avg: ";
+	char * minStr = "min: ";
+	char * maxStr = "max: ";
+
 	  if (strcmp(state, six) == 0) {
-		reply = (char*) malloc(strlen(avg) + strlen(max) + strlen(min) + strlen(prefix) + strlen(suffix) + 1);
+		reply = (char*) malloc(strlen(avg) + strlen(avgStr) + strlen(minStr) + strlen(maxStr) + strlen(max) + strlen(min) + strlen(prefix) + strlen(suffix) + 1);
+		//reply = (char*) malloc(strlen(avgStr) + strlen(avg) + strlen(prefix) + strlen(suffix) + 1);
 		strcpy(reply, prefix);
+		strcat(reply, minStr);
 		strcat(reply, min);
+		strcat(reply, maxStr);
 		strcat(reply, max);
+		strcat(reply, avgStr);
 		strcat(reply, avg);
 		strcat(reply, suffix);
 
 	  }
 	  else {
-		reply = (char*) malloc(strlen(latestTemp) + strlen(prefix) + strlen(suffix) + 1);
+		char * FStr = "F";
+		char * CStr = "C";
+		char * temperatureToSend = (char *)malloc((sizeof(char) * 100));
+		if (F) {
+			strcpy(temperatureToSend, FStr);			
+			strcat(temperatureToSend, latestTemp);
+		}
+		else {
+			strcpy(temperatureToSend, CStr);			
+			strcat(temperatureToSend, latestTemp);
+		}
+		reply = (char*) malloc(strlen(temperatureToSend) + strlen(prefix) + strlen(suffix) + 1);
+		
 		strcpy(reply, prefix);
-		strcat(reply, latestTemp);
+		strcat(reply, temperatureToSend);
 		strcat(reply, suffix);
 	  }
 	
@@ -197,7 +214,7 @@ void *fun(void *a) { //arduino thread
       return NULL;
     }
 
-  arduinoFd = open("/dev/ttyUSB11", O_RDWR);
+  arduinoFd = open("/dev/ttyUSB10", O_RDWR);
   if (arduinoFd == -1) {
 	printf("Error connecting to Arduino.");
   	return NULL;
@@ -239,7 +256,9 @@ void *fun(void *a) { //arduino thread
 	  else if (tempholder > maxF) {
 		maxF = tempholder;
 	  } //update max
-	  FTempTotal += tempholder;
+	  if (FTempCount > 5) {
+	  	FTempTotal += tempholder;
+	  }
 	  FTempCount++;
 	}
 	else { //temp is celsius so add to CTempTotal
@@ -253,7 +272,9 @@ void *fun(void *a) { //arduino thread
 	  else if (tempholder > maxC) {
 		maxC = tempholder;
 	  } //update max
+	  if (CTempCount > 5) { //UPDATED
 	  CTempTotal += tempholder;
+	  }
 	  CTempCount++;
 	}
   }
