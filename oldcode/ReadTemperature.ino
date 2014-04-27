@@ -47,7 +47,6 @@ int hot;
 bool isRunning;
 bool isF;
 bool isInverted;
-int on;
 
 /***************************************************************************
  Function Name: setup
@@ -61,9 +60,7 @@ void setup()
   Wire.begin();        /* Join I2C bus */
   pinMode(RED, OUTPUT);    
   pinMode(GREEN, OUTPUT);  
-  pinMode(BLUE, OUTPUT); 
-  // to access the LED light
-  //pinMode(13,OUTPUT);
+  pinMode(BLUE, OUTPUT);   
   delay(500);          /* Allow system to stabilize */
   isRunning = true;
   isF = false;
@@ -120,39 +117,12 @@ void loop()
     delay (250);
   }
   
-  on = 0; //set light to off
-  
   while (1)
   {
-    int data_read = Serial.read();
-    Serial.print(data_read);
-    Serial.print('\n');
+    char data_read = Serial.read();
     if (data_read != NULL) {
-      if (data_read > 9700 && data_read < 9800) {
-        //case 9700:
-          if (on == 0) {
-            on = 1; //set to on
-            //digitalWrite(13, HIGH);
-            digitalWrite(GREEN, HIGH);
-            digitalWrite(BLUE, LOW); 
-            digitalWrite(RED, LOW);
-             //UpdateRGB(24);
-          }
-      }
-          //  break;
-        //case 98:
-        if (data_read > 9800) {
-          if (on == 1) {
-            on = 0; //set to on
-            //digitalWrite(13, LOW);
-            //digitalWrite(GREEN, LOW);
-            //digitalWrite(BLUE, HIGH); 
-            //digitalWrite(RED, LOW);
-            UpdateRGB(20);
-          }
-        }
-           /* break;   
-        case 99:
+      switch (data_read) {
+         case 'a':
             if (isF) {
               isF = false;
               hot = HOT;
@@ -164,15 +134,15 @@ void loop()
               cold = (COLD * 1.8) + 32;
             }
             break;
-          case 2:
+          case 'b':
             if (isRunning) isRunning = false;
             else isRunning = true;
             break;
-          case 3:
+          case 'c':
             if (isInverted) isInverted = false;
             else isInverted = true;
-            break;*/
-        //}
+            break;
+        }
       }
     if (isRunning) {
       Wire.requestFrom(THERM, 2);

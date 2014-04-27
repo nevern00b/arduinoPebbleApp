@@ -1,4 +1,3 @@
-
 /***************************************************************************
 
                      Copyright 2008 Gravitech
@@ -42,12 +41,6 @@ void Dis_7SEG (int, byte, byte, bool);
 void Send7SEG (byte, byte);
 void SerialMonitorPrint (byte, int, bool);
 void UpdateRGB (byte);
-int cold;
-int hot;
-bool isRunning;
-bool isF;
-bool isInverted;
-int on;
 
 /***************************************************************************
  Function Name: setup
@@ -55,18 +48,15 @@ int on;
  Purpose: 
    Initialize hardwares.
 ****************************************************************************/
+
 void setup() 
 { 
   Serial.begin(BAUD);
   Wire.begin();        /* Join I2C bus */
   pinMode(RED, OUTPUT);    
   pinMode(GREEN, OUTPUT);  
-  pinMode(BLUE, OUTPUT); 
-  // to access the LED light
-  //pinMode(13,OUTPUT);
+  pinMode(BLUE, OUTPUT);   
   delay(500);          /* Allow system to stabilize */
-  isRunning = true;
-  isF = false;
 } 
 
 /***************************************************************************
@@ -81,6 +71,8 @@ void loop()
   int Decimal;
   byte Temperature_H, Temperature_L, counter, counter2;
   bool IsPositive;
+  byte data_read;
+  
   /* Configure 7-Segment to 12mA segment output current, Dynamic mode, 
      and Digits 1, 2, 3 AND 4 are NOT blanked */
      
@@ -119,81 +111,54 @@ void loop()
     Wire.endTransmission();
     delay (250);
   }
-  
-  on = 0; //set light to off
+  int on = 0;
   
   while (1)
   {
-    int data_read = Serial.read();
-    Serial.print(data_read);
-    Serial.print('\n');
+    Wire.requestFrom(THERM, 2);
+    Temperature_H = Wire.read();
+    Temperature_L = Wire.read();
+    
+    /* Calculate temperature */
+    Cal_temp (Decimal, Temperature_H, Temperature_L, IsPositive);
+    
+    /* Display temperature on the serial monitor. 
+       Comment out this line if you don't use serial monitor.*/
+    SerialMonitorPrint (Temperature_H, Decimal, IsPositive);
+    
+    /* Update RGB LED.*/
+    //UpdateRGB (Temperature_H);
+    data_read = Serial.read();
+    
     if (data_read != NULL) {
-      if (data_read > 9700 && data_read < 9800) {
-        //case 9700:
-          if (on == 0) {
-            on = 1; //set to on
-            //digitalWrite(13, HIGH);
-            digitalWrite(GREEN, HIGH);
-            digitalWrite(BLUE, LOW); 
-            digitalWrite(RED, LOW);
-             //UpdateRGB(24);
-          }
-      }
-          //  break;
-        //case 98:
-        if (data_read > 9800) {
-          if (on == 1) {
-            on = 0; //set to on
-            //digitalWrite(13, LOW);
-            //digitalWrite(GREEN, LOW);
-            //digitalWrite(BLUE, HIGH); 
-            //digitalWrite(RED, LOW);
-            UpdateRGB(20);
-          }
-        }
-           /* break;   
-        case 99:
-            if (isF) {
-              isF = false;
-              hot = HOT;
-              cold = COLD;
-            }
-            else {
-              isF = true;
-              hot = (HOT * 1.8) + 32;
-              cold = (COLD * 1.8) + 32;
-            }
-            break;
-          case 2:
-            if (isRunning) isRunning = false;
-            else isRunning = true;
-            break;
-          case 3:
-            if (isInverted) isInverted = false;
-            else isInverted = true;
-            break;*/
-        //}
-      }
-    if (isRunning) {
-      Wire.requestFrom(THERM, 2);
-      Temperature_H = Wire.read();
-      Temperature_L = Wire.read();
-      
-      /* Calculate temperature */
-      Cal_temp (Decimal, Temperature_H, Temperature_L, IsPositive);
-      
-      /* Display temperature on the serial monitor. 
-         Comment out this line if you don't use serial monitor.*/
-      SerialMonitorPrint (Temperature_H, Decimal, IsPositive);
-      
-      /* Update RGB LED.*/
-      UpdateRGB (Temperature_H);
 
-      /* Display temperature on the 7-Segment */
-      Dis_7SEG (Decimal, Temperature_H, Temperature_L, IsPositive);
-      
-      delay (1000);        /* Take temperature read every 1 second */
-    }
+      if (data_read == 97) {
+        if (on == 0 || on == 2) {
+            on = 1; //set to on
+            UpdateRGB(1);
+        }
+      } //a is blue
+       if (data_read == 98) {
+         if (on == 1 || on == 2) {
+           on = 0;
+            UpdateRGB(25);
+         }
+       }
+       if (data_read == 99) {
+          if (on == 0 || on == 1) {
+             on = 2;
+            UpdateRGB(27);
+         }
+       }
+    } 
+    
+    //Serial.println(data_read);
+   // UpdateRGB (data_read);
+    
+    /* Display temperature on the 7-Segment */
+    Dis_7SEG (Decimal, Temperature_H, Temperature_L, IsPositive);
+    
+    //delay (1000);        /* Take temperature read every 1 second */
   }
 } 
 
@@ -209,24 +174,18 @@ void Cal_temp (int& Decimal, byte& High, byte& Low, bool& sign)
     sign = 0;
   else
     sign = 1;
+    
   High = High & B01111111;      /* Remove sign bit */
+  Low = Low & B11110000;        /* Remove last 4 bits */
   Low = Low >> 4; 
-  if (isF) {
-    float fahrenheit = ((High + (Low * 0.0625)) * 1.8) + 32;
-    High = (int) fahrenheit;
-    Low = (fahrenheit - (int) fahrenheit) * 100;
-    Low = Low >> 4;
-    Decimal = Low * 625;
-  }
-  else {
-    Decimal = Low;
-    Decimal = Decimal * 625;      /* Each bit = 0.0625 degree C */
-    if (sign == 0)                /* if temperature is negative */
-    {
-      High = High ^ B01111111;    /* Complement all of the bits, except the MSB */
-      Decimal = Decimal^ 0xFF;   /* Complement all of the bits */
-    }
-  }
+  Decimal = Low;
+  Decimal = Decimal * 625;      /* Each bit = 0.0625 degree C */
+  
+  if (sign == 0)                /* if temperature is negative */
+  {
+    High = High ^ B01111111;    /* Complement all of the bits, except the MSB */
+    Decimal = Decimal ^ 0xFF;   /* Complement all of the bits */
+  }  
 }
 
 /***************************************************************************
@@ -280,8 +239,7 @@ void Dis_7SEG (int Decimal, byte High, byte Low, bool sign)
 
   if (Digit > 0)                 /* Display "c" if there is more space on 7-SEG */
   {
-    if (isF) Send7SEG (Digit,0x71);
-    else Send7SEG (Digit,0x58);
+    Send7SEG (Digit,0x58);
     Digit--;
   }
   
@@ -319,27 +277,17 @@ void UpdateRGB (byte Temperature_H)
   digitalWrite(GREEN, LOW);
   digitalWrite(BLUE, LOW);        /* Turn off all LEDs. */
   
-  if (isInverted) {
-    if (Temperature_H <= cold) {
-      digitalWrite(RED, HIGH);
-    }
-    else if (Temperature_H >= hot) {
-      digitalWrite(BLUE, HIGH);
-    }
-    else {
-      digitalWrite(GREEN, HIGH);
-    }
+  if (Temperature_H <= COLD)
+  {
+    digitalWrite(BLUE, HIGH);
   }
-  else {
-    if (Temperature_H <= cold) {
-      digitalWrite(BLUE, HIGH);
-    }
-    else if (Temperature_H >= hot) {
-      digitalWrite(RED, HIGH);
-    }
-    else {
-      digitalWrite(GREEN, HIGH);
-    }
+  else if (Temperature_H >= HOT)
+  {
+    digitalWrite(RED, HIGH);
+  }
+  else 
+  {
+    digitalWrite(GREEN, HIGH);
   }
 }
 
@@ -351,6 +299,7 @@ void UpdateRGB (byte Temperature_H)
 ****************************************************************************/
 void SerialMonitorPrint (byte Temperature_H, int Decimal, bool IsPositive)
 {
+    //Serial.print("The temperature is ");
     if (!IsPositive)
     {
       Serial.print("-");
@@ -358,6 +307,7 @@ void SerialMonitorPrint (byte Temperature_H, int Decimal, bool IsPositive)
     Serial.print(Temperature_H, DEC);
     Serial.print(".");
     Serial.print(Decimal, DEC);
+    //Serial.print(" degree C");
     Serial.print("\n");
 }
     

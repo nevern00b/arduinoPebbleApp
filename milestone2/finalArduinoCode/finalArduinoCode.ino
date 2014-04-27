@@ -47,7 +47,10 @@ int hot;
 bool isRunning;
 bool isF;
 bool isInverted;
-int on;
+bool isRed;
+bool isBlue;
+bool isGreen;
+bool partyMode;
 
 /***************************************************************************
  Function Name: setup
@@ -61,9 +64,7 @@ void setup()
   Wire.begin();        /* Join I2C bus */
   pinMode(RED, OUTPUT);    
   pinMode(GREEN, OUTPUT);  
-  pinMode(BLUE, OUTPUT); 
-  // to access the LED light
-  //pinMode(13,OUTPUT);
+  pinMode(BLUE, OUTPUT);   
   delay(500);          /* Allow system to stabilize */
   isRunning = true;
   isF = false;
@@ -120,39 +121,15 @@ void loop()
     delay (250);
   }
   
-  on = 0; //set light to off
+  hot = HOT; //set temperature initially
+  cold = COLD;
   
   while (1)
   {
-    int data_read = Serial.read();
-    Serial.print(data_read);
-    Serial.print('\n');
+    char data_read = Serial.read();
     if (data_read != NULL) {
-      if (data_read > 9700 && data_read < 9800) {
-        //case 9700:
-          if (on == 0) {
-            on = 1; //set to on
-            //digitalWrite(13, HIGH);
-            digitalWrite(GREEN, HIGH);
-            digitalWrite(BLUE, LOW); 
-            digitalWrite(RED, LOW);
-             //UpdateRGB(24);
-          }
-      }
-          //  break;
-        //case 98:
-        if (data_read > 9800) {
-          if (on == 1) {
-            on = 0; //set to on
-            //digitalWrite(13, LOW);
-            //digitalWrite(GREEN, LOW);
-            //digitalWrite(BLUE, HIGH); 
-            //digitalWrite(RED, LOW);
-            UpdateRGB(20);
-          }
-        }
-           /* break;   
-        case 99:
+      switch (data_read) {
+         case 'f':
             if (isF) {
               isF = false;
               hot = HOT;
@@ -164,15 +141,15 @@ void loop()
               cold = (COLD * 1.8) + 32;
             }
             break;
-          case 2:
-            if (isRunning) isRunning = false;
-            else isRunning = true;
+          case 's':
+              if (isRunning) isRunning = false;
+              else isRunning = true;
             break;
-          case 3:
-            if (isInverted) isInverted = false;
-            else isInverted = true;
-            break;*/
-        //}
+          case 'p':
+              if (partyMode) partyMode = false; //set to party mode
+              else partyMode = true; //turn off party mode
+            break;
+        }
       }
     if (isRunning) {
       Wire.requestFrom(THERM, 2);
@@ -187,7 +164,12 @@ void loop()
       SerialMonitorPrint (Temperature_H, Decimal, IsPositive);
       
       /* Update RGB LED.*/
-      UpdateRGB (Temperature_H);
+      if (!partyMode) {
+        UpdateRGB (Temperature_H);
+      }
+      else {
+        partyModeRun(); 
+      }
 
       /* Display temperature on the 7-Segment */
       Dis_7SEG (Decimal, Temperature_H, Temperature_L, IsPositive);
@@ -318,20 +300,7 @@ void UpdateRGB (byte Temperature_H)
   digitalWrite(RED, LOW);
   digitalWrite(GREEN, LOW);
   digitalWrite(BLUE, LOW);        /* Turn off all LEDs. */
-  
-  if (isInverted) {
-    if (Temperature_H <= cold) {
-      digitalWrite(RED, HIGH);
-    }
-    else if (Temperature_H >= hot) {
-      digitalWrite(BLUE, HIGH);
-    }
-    else {
-      digitalWrite(GREEN, HIGH);
-    }
-  }
-  else {
-    if (Temperature_H <= cold) {
+  if (Temperature_H <= cold) {
       digitalWrite(BLUE, HIGH);
     }
     else if (Temperature_H >= hot) {
@@ -340,7 +309,6 @@ void UpdateRGB (byte Temperature_H)
     else {
       digitalWrite(GREEN, HIGH);
     }
-  }
 }
 
 /***************************************************************************
@@ -361,5 +329,36 @@ void SerialMonitorPrint (byte Temperature_H, int Decimal, bool IsPositive)
     Serial.print("\n");
 }
     
+void partyModeRun() {
 
+  int green = 25;
+    if (isF) {
+      green = 74;
+    }      
+      
+    if (isRed) {  //if red, set to blue
+        UpdateRGB(-500); //set to blue
+        isRed = false;
+        isBlue = true;
+        isGreen = false;
+      }
+      else if (isBlue) { //if blue, set to green
+        UpdateRGB(green); //set to green
+        isRed = false;
+        isBlue = false;
+        isGreen = true;
+      }
+      else if (isGreen) { //if green, set to red
+        UpdateRGB(1000); //set to red
+        isRed = true;
+        isBlue = false;
+        isGreen = false;
+      }
+      else { //if none of the above set to red
+        UpdateRGB(1000); //set to red
+        isRed = true;
+        isBlue = false;
+        isGreen = false;
+      }
+}
 

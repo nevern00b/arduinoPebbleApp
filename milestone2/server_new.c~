@@ -65,7 +65,7 @@ int start_server(int PORT_NUMBER)
       server_addr.sin_addr.s_addr = INADDR_ANY; 
       bzero(&(server_addr.sin_zero),8); 
       
-      // 2. bind: use the socket and associate it with the port number
+      // 2. bind: use the socket and associate it with the port numberthe user should be able to change the 7-segment display on the sensor to show the temperature either in Fahrenheit or Celsius. The user should be able to put the sensor into a "stand-by" mode in which it is not reporting temperature readings. When the sensor is in "stand-by" mode, the user should also be able to tell it to resume reporting the readings.
       if (bind(sock, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == -1) {
 	perror("Unable to bind");
 	exit(1);
@@ -107,7 +107,8 @@ int start_server(int PORT_NUMBER)
       pointerToState = strchr(request, '$'); //parses request after $ to capture pebble output
       if (pointerToState == NULL) continue;
       *state = pointerToState[1]; //set parse to char after the $ sign
-	char * six = "six"; //temp stats state
+	printf("%s ", state); //print out state
+	char * six = "6"; //temp stats state
 	if (strcmp(state, six) == 0) { //calculate average temps
 	  if (F) { 
 	    average_temp = FTempTotal/FTempCount;
@@ -264,15 +265,15 @@ void *fun(void *a) { //arduino thread
 		bytes_written = write(fd, cMsg, strlen(cMsg) + 1);
 	}
 	//put arduino off standby
-	else if (strcmp(state, three) == 0) { //get new reading
+	else if (strcmp(state, three) == 0) { 
 		bytes_written = write(fd, dMsg, strlen(dMsg + 1));
 	}
 	//turn on party mode
-	else if (strcmp(state, four) == 0) { //get new reading
+	else if (strcmp(state, four) == 0) { 
 		bytes_written = write(fd, eMsg, strlen(eMsg + 1));
 	}
 	//turn off party mode
-	else if (strcmp(state, five) == 0) { //get new reading
+	else if (strcmp(state, five) == 0) { 
 		bytes_written = write(fd, fMsg, strlen(fMsg + 1));
 	}
 	else { //error
