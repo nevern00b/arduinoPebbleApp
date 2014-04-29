@@ -240,7 +240,7 @@ int start_server(int PORT_NUMBER) {
 } 
 
 void *fun(void *a) { //arduino thread
-	arduinoFd = open("/dev/ttyUSB10", O_RDWR);
+	arduinoFd = open("/dev/ttyUSB11", O_RDWR);
 	if (arduinoFd == -1) {
 		printf("Error connecting to Arduino.");
 		pthread_exit(NULL);
@@ -274,22 +274,26 @@ void *fun(void *a) { //arduino thread
 		  strcpy(latestTemp, updatedString); //copying latest finished temp into latestTemp
 		  sscanf(latestTemp, "%lf", &tempholder); //scan latest temp into temp holder
 		  
-		  if (getF()) { //if temp is fahrenheit, convert to C, which is the unit we store int
-		      tempholder = fToC(tempholder);
+		  if (totalReadings > 4) {
+		    if (getF()) { //if temp is fahrenheit, convert to C, which is the unit we store int
+			tempholder = fToC(tempholder);
+		    }
+		    pthread_mutex_lock(tLock);
+		    if (tempholder < minTemp && tempholder != -1) {
+			minTemp = tempholder;
+		    }
+		    else if (tempholder > maxTemp) {
+			maxTemp = tempholder;
+		    }
+		    TempTotal += tempholder;
+		    TempCount++;
+		    pthread_mutex_unlock(tLock);
+		    
 		  }
-		  pthread_mutex_lock(tLock);
-		  if (tempholder < minTemp && tempholder != -1) {
-		      minTemp = tempholder;
-		  }
-		  else if (tempholder > maxTemp) {
-		      maxTemp = tempholder;
-		  }
-		  TempTotal += tempholder;
-		  TempCount++;
-		  pthread_mutex_unlock(tLock);
+		  totalReadings += 1;
 		}
 		  //}
-		totalReadings += 1;
+		
 	}
 	close(arduinoFd);
 }
