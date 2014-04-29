@@ -239,8 +239,6 @@ int start_server(int PORT_NUMBER) {
 	return 0;
 } 
 
-
-
 void *fun(void *a) { //arduino thread
 	arduinoFd = open("/dev/ttyUSB10", O_RDWR);
 	if (arduinoFd == -1) {
