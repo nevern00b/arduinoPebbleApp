@@ -18,6 +18,7 @@ http://www.binarii.com/files/papers/c_sockets.txt
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/stat.h>
 
 char latestTemp[100];
 pthread_t thread_id;
@@ -33,12 +34,14 @@ int F = 0;
 int S = 0;
 int P = 0;
 int arduinoFd;
+int failedReadings = 0;
 double TempCount = 0;
 double TempTotal = 0;
 double tempholder = -1;
 pthread_mutex_t * fLock;
 pthread_mutex_t * tLock;
 void *fun(void *);
+char * filename;
 
 void toggleF() {
     pthread_mutex_lock(fLock);
@@ -132,94 +135,101 @@ int start_server(int PORT_NUMBER) {
 		
 		//Checks state received
 		int bytes_written = 0;
-		switch (pointerToState[1]) {
-			case '0':
-				//Sends standby notice
-				if (S) {
-					reply = (char*) malloc(strlen(prefix) + strlen(suffix) + 27);
-					strcpy(reply, prefix);
-					strcat(reply, "&Server in standby");
-					strcat(reply, suffix);
-				}
-				//Sends actual temperature readings preceeded by F or C
-				else {
-					reply = (char*) malloc(strlen(latestTemp) + strlen(prefix) + strlen(suffix) + 2);
-					strcpy(reply, prefix);
-					if (F) strcat(reply,"F");
-					else strcat(reply,"C");
-					strcat(reply, latestTemp);
-					strcat(reply, suffix);
-				}
-				break;
-			case '1': //toggle F and C 
-				printf("writing to arduino");
-				bytes_written = write(arduinoFd, "f", sizeof(char)); 
-				if (getF()) {
-				 reply = "{\n\"name\": \"Unit changed to C\"\n}\n";
-				 toggleF();
-				}
-				else {
-				  reply = "{\n\"name\": \"Unit changed to F\"\n}\n";
-				  toggleF();
-				}
-				break;
-			case '2': //toggle standby mode
-				bytes_written = write(arduinoFd, "s", sizeof(char));
-				if (S) {
-				  reply = "{\n\"name\": \"Standby mode OFF\"\n}\n";
-				  S = 0;
-				}
-				else {
-				  reply = "{\n\"name\": \"Standby mode ON\"\n}\n";
-				  S = 1;
-				}
-				break;
-			case '3': //toggle party mode
-				bytes_written = write(arduinoFd, "p", sizeof(char));
-				if (P) {
-				  reply = "{\n\"name\": \"Party mode OFF\"\n}\n";
-				  P = 0;
-				}
-				else {
-				  reply = "{\n\"name\": \"Party mode ON\"\n}\n";
-				  P = 1;
-				}
-				break;
-			case '4': //returns average temperature readings
-				if (getF()) { 
-					pthread_mutex_lock(tLock);
-					average_temp = TempTotal/TempCount;
-					sprintf(avg, "%.2lf F\\n", cToF(average_temp));	
-					sprintf(min, "%.2lf F\\n", cToF(minTemp));	    
-					sprintf(max, "%.2lf F\\n", cToF(maxTemp));
-					pthread_mutex_unlock(tLock);
-				}
-				else {
-					pthread_mutex_lock(tLock);
-					average_temp = TempTotal/TempCount;
-					sprintf(avg, "%.2lf C\\n", average_temp);	
-					sprintf(min, "%.2lf C\\n", minTemp);	    
-					sprintf(max, "%.2lf C\\n", maxTemp);
-					pthread_mutex_unlock(tLock);
-				}
-				
-				reply = (char*) malloc(strlen(avg) + strlen(max) + strlen(min) + strlen(prefix) + strlen(suffix) + 16);
-				strcpy(reply, prefix);
-				strcat(reply, "min: ");
-				strcat(reply, min);
-				strcat(reply, "max: ");
-				strcat(reply, max);
-				strcat(reply, "avg: ");
-				strcat(reply, avg);
-				strcat(reply, suffix);
-				break;
-			case '5': //turns server off (irreversible)
-				stopRunning = 1;
-				break;
-			default:	
-				break;
+		struct stat buffer;   
+		//int 
+		//int fileExist = stat(filename, &buffer);//access(filename, F_OK);
+		//FILE * fileCheck = fopen(filename,"r");
+		if (failedReadings > 5000000 && !S) {
+		    reply = "{\n\"name\": \"&Arduino disconnected\"\n}\n";
 		}
-
+		else {
+		  switch (pointerToState[1]) {
+			  case '0':
+				if (S) {
+					  reply = (char*) malloc(strlen(prefix) + strlen(suffix) + 27);
+					  strcpy(reply, prefix);
+					  strcat(reply, "&Server in standby");
+					  strcat(reply, suffix);
+				  }
+				  //Sends actual temperature readings preceeded by F or C
+				  else {
+					  reply = (char*) malloc(strlen(latestTemp) + strlen(prefix) + strlen(suffix) + 2);
+					  strcpy(reply, prefix);
+					  if (F) strcat(reply,"F");
+					  else strcat(reply,"C");
+					  strcat(reply, latestTemp);
+					  strcat(reply, suffix);
+				  }
+				  break;
+			  case '1': //toggle F and C 
+				  printf("writing to arduino");
+				  bytes_written = write(arduinoFd, "f", sizeof(char)); 
+				  if (getF()) {
+				  reply = "{\n\"name\": \"Unit changed to C\"\n}\n";
+				  toggleF();
+				  }
+				  else {
+				    reply = "{\n\"name\": \"Unit changed to F\"\n}\n";
+				    toggleF();
+				  }
+				  break;
+			  case '2': //toggle standby mode
+				  bytes_written = write(arduinoFd, "s", sizeof(char));
+				  if (S) {
+				    reply = "{\n\"name\": \"Standby mode OFF\"\n}\n";
+				    S = 0;
+				  }
+				  else {
+				    reply = "{\n\"name\": \"Standby mode ON\"\n}\n";
+				    S = 1;
+				  }
+				  break;
+			  case '3': //toggle party mode
+				  bytes_written = write(arduinoFd, "p", sizeof(char));
+				  if (P) {
+				    reply = "{\n\"name\": \"Party mode OFF\"\n}\n";
+				    P = 0;
+				  }
+				  else {
+				    reply = "{\n\"name\": \"Party mode ON\"\n}\n";
+				    P = 1;
+				  }
+				  break;
+			  case '4': //returns average temperature readings
+				  if (getF()) { 
+					  pthread_mutex_lock(tLock);
+					  average_temp = TempTotal/TempCount;
+					  sprintf(avg, "%.2lf F\\n", cToF(average_temp));	
+					  sprintf(min, "%.2lf F\\n", cToF(minTemp));	    
+					  sprintf(max, "%.2lf F\\n", cToF(maxTemp));
+					  pthread_mutex_unlock(tLock);
+				  }
+				  else {
+					  pthread_mutex_lock(tLock);
+					  average_temp = TempTotal/TempCount;
+					  sprintf(avg, "%.2lf C\\n", average_temp);	
+					  sprintf(min, "%.2lf C\\n", minTemp);	    
+					  sprintf(max, "%.2lf C\\n", maxTemp);
+					  pthread_mutex_unlock(tLock);
+				  }
+				  
+				  reply = (char*) malloc(strlen(avg) + strlen(max) + strlen(min) + strlen(prefix) + strlen(suffix) + 16);
+				  strcpy(reply, prefix);
+				  strcat(reply, "min: ");
+				  strcat(reply, min);
+				  strcat(reply, "max: ");
+				  strcat(reply, max);
+				  strcat(reply, "avg: ");
+				  strcat(reply, avg);
+				  strcat(reply, suffix);
+				  break;
+			  case '5': //turns server off (irreversible)
+				  stopRunning = 1;
+				  break;
+			  default:	
+				  break;
+		  }
+		}
 		if (bytes_written == -1) printf("Problem sending signal to arduino");
 		// 6. send: send the message over the socket
 		// note that the second argument is a char*, and the third is the number of chars
@@ -240,10 +250,11 @@ int start_server(int PORT_NUMBER) {
 } 
 
 void *fun(void *a) { //arduino thread
-	arduinoFd = open("/dev/ttyUSB11", O_RDWR);
+	filename = "/dev/ttyUSB10";
+	arduinoFd = open(filename, O_RDWR);
 	if (arduinoFd == -1) {
 		printf("Error connecting to Arduino.");
-		pthread_exit(NULL);
+		failedReadings = 5000000;
 	}
 	minTemp = 1500;
 	//configuration code
@@ -291,9 +302,12 @@ void *fun(void *a) { //arduino thread
 		    
 		  }
 		  totalReadings += 1;
+		  printf("%d\n",failedReadings);
+		  failedReadings = 0;
 		}
-		  //}
-		
+		else {
+		    failedReadings += 1;
+		}
 	}
 	close(arduinoFd);
 }
