@@ -40,6 +40,8 @@ double TempTotal = 0;
 double tempholder = -1;
 pthread_mutex_t * fLock;
 pthread_mutex_t * tLock;
+pthread_mutex_t * endLock;
+int stopArduino = 0;
 void *fun(void *);
 char * filename;
 
@@ -224,6 +226,7 @@ int start_server(int PORT_NUMBER) {
 				  strcat(reply, suffix);
 				  break;
 			  case '5': //turns server off (irreversible)
+				  reply = "{\n\"name\": \"&Server turned off\"\n}\n";
 				  stopRunning = 1;
 				  break;
 			  default:	
@@ -243,6 +246,9 @@ int start_server(int PORT_NUMBER) {
 			break;
 		}
 	}
+	pthread_mutex_lock(endLock);
+	stopArduino = 1;
+	pthread_mutex_unlock(endLock);
 	close(sock);
 	pthread_join(thread_id,NULL);
 	printf("Server closed connection\n");
@@ -302,14 +308,16 @@ void *fun(void *a) { //arduino thread
 		    
 		  }
 		  totalReadings += 1;
-		  printf("%d\n",failedReadings);
+		  //printf("%d\n",failedReadings);
 		  failedReadings = 0;
 		}
 		else {
 		    failedReadings += 1;
 		}
+		if (stopArduino) break;
 	}
 	close(arduinoFd);
+	pthread_exit(NULL);
 }
 
 
@@ -318,6 +326,7 @@ int main(int argc, char *argv[])
 {
 	fLock = malloc (sizeof(pthread_mutex_t));
 	tLock = malloc (sizeof(pthread_mutex_t));
+	endLock = malloc (sizeof(pthread_mutex_t));
 // check the number of arguments
 	if (argc != 2)
 	{
